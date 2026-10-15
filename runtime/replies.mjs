@@ -1,6 +1,6 @@
 // Answers "CALLS" / "COMPARE" comments: one private DM plus a short public reply.
 // Instagram allows one private reply per comment, within 7 days; this looks back 3 days.
-// A comment that already has a reply from us is treated as handled.
+// A comment that already carries our public reply is treated as handled.
 import { env, graph } from './ig.mjs';
 
 const HANDLE = 'maxsavehub';
@@ -30,16 +30,17 @@ for (const m of media.data ?? []) {
   const comments = await graph(
     cfg.token,
     'GET',
-    `/${m.id}/comments?fields=id,text,username,timestamp,replies{username}&limit=50`,
+    `/${m.id}/comments?fields=id,text,username,timestamp,replies{text}&limit=50`,
   );
   for (const c of comments.data ?? []) {
-    if (c.username === HANDLE || Date.parse(c.timestamp) < cutoff) continue;
+    if (c.username === HANDLE || c.text === PUBLIC_REPLY || Date.parse(c.timestamp) < cutoff) continue;
     const kw = keywordOf(c.text);
     if (!kw) continue;
     seen++;
-    if ((c.replies?.data ?? []).some((r) => r.username === HANDLE)) continue;
+    // Instagram omits usernames for most commenters, so our public reply's text marks a comment as handled.
+    if ((c.replies?.data ?? []).some((r) => r.text === PUBLIC_REPLY)) continue;
     if (dry) {
-      console.log(`would answer ${kw} for @${c.username} on ${m.id}`);
+      console.log(`would answer ${kw} for comment ${c.id} on ${m.id}`);
       continue;
     }
     try {
@@ -49,9 +50,9 @@ for (const m of media.data ?? []) {
       });
       await graph(cfg.token, 'POST', `/${c.id}/replies`, { message: PUBLIC_REPLY });
       answered++;
-      console.log(`answered ${kw} for @${c.username} on ${m.id}`);
+      console.log(`answered ${kw} for comment ${c.id} on ${m.id}`);
     } catch (e) {
-      console.error(`could not answer @${c.username} (${c.id}): ${e.message}`);
+      console.error(`could not answer comment ${c.id}: ${e.message}`);
     }
   }
 }
