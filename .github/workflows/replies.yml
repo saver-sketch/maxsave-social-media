@@ -1,0 +1,41 @@
+name: Answer comment keywords
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'answer | dry-run'
+        required: false
+        default: answer
+
+permissions:
+  contents: read
+
+concurrency:
+  group: comment-replies
+  cancel-in-progress: false
+
+jobs:
+  replies:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Answer CALLS / COMPARE comments
+        env:
+          SEED_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          TOKEN_KEY: ${{ secrets.TOKEN_KEY }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          MODE: ${{ inputs.mode }}
+        run: |
+          source runtime/token.sh
+          if [ "${MODE:-answer}" = "dry-run" ]; then
+            node runtime/replies.mjs --dry-run
+          else
+            node runtime/replies.mjs
+          fi

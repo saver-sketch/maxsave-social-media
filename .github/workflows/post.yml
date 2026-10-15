@@ -1,0 +1,46 @@
+name: Daily Instagram post
+
+on:
+  schedule:
+    - cron: '0 16 * * *' # 9 AM PDT / 8 AM PST
+  workflow_dispatch:
+    inputs:
+      date:
+        description: 'Post date YYYY-MM-DD (blank = today, Pacific)'
+        required: false
+      mode:
+        description: 'publish | no-publish | dry-run'
+        required: false
+        default: publish
+
+permissions:
+  contents: write
+
+concurrency:
+  group: instagram-token
+  cancel-in-progress: false
+
+jobs:
+  post:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Publish today's carousel
+        env:
+          SEED_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
+          TOKEN_KEY: ${{ secrets.TOKEN_KEY }}
+          IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          POST_DATE: ${{ inputs.date }}
+          MODE: ${{ inputs.mode }}
+          REFRESH: '1'
+        run: |
+          source runtime/token.sh
+          ARGS=()
+          if [ -n "${POST_DATE:-}" ]; then ARGS+=("--date=$POST_DATE"); fi
+          if [ "${MODE:-publish}" = "no-publish" ]; then ARGS+=("--no-publish"); fi
+          if [ "${MODE:-publish}" = "dry-run" ]; then ARGS+=("--dry-run"); fi
+          node runtime/post.mjs "${ARGS[@]}"
