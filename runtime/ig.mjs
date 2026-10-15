@@ -27,8 +27,8 @@ export async function graph(token, method, pathAndQuery, body) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-async function waitFinished(token, id) {
-  for (let i = 0; i < 20; i++) {
+async function waitFinished(token, id, tries = 20) {
+  for (let i = 0; i < tries; i++) {
     const { status_code } = await graph(token, 'GET', `/${id}?fields=status_code`);
     if (status_code === 'FINISHED') return;
     if (status_code === 'ERROR' || status_code === 'EXPIRED') {
@@ -56,6 +56,30 @@ export async function createCarousel({ userId, token }, imageUrls, caption) {
     caption,
   });
   await waitFinished(token, id);
+  return id;
+}
+
+/** Single image post container. */
+export async function createImage({ userId, token }, imageUrl, caption, altText) {
+  const { id } = await graph(token, 'POST', `/${userId}/media`, {
+    image_url: imageUrl,
+    caption,
+    ...(altText ? { alt_text: altText } : {}),
+  });
+  await waitFinished(token, id);
+  return id;
+}
+
+/** Reel container (also shown in the main grid). Video processing can take a few minutes. */
+export async function createReel({ userId, token }, videoUrl, coverUrl, caption) {
+  const { id } = await graph(token, 'POST', `/${userId}/media`, {
+    media_type: 'REELS',
+    video_url: videoUrl,
+    cover_url: coverUrl,
+    caption,
+    share_to_feed: 'true',
+  });
+  await waitFinished(token, id, 40); // up to 10 minutes
   return id;
 }
 

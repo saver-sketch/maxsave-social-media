@@ -1,7 +1,7 @@
-// Publishes today's scheduled carousel (Pacific date) from schedule.json.
+// Publishes today's scheduled post (carousel, single image, or Reel; Pacific date) from schedule.json.
 // Flags: --date=YYYY-MM-DD  --dry-run (no Instagram calls)  --no-publish (build container only)
 import { readFileSync } from 'node:fs';
-import { IMAGE_BASE, createCarousel, env, graph, publish } from './ig.mjs';
+import { IMAGE_BASE, createCarousel, createImage, createReel, env, graph, publish } from './ig.mjs';
 
 const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
@@ -16,8 +16,11 @@ if (!entry) {
   process.exit(1);
 }
 
-const urls = entry.images.map((f) => `${IMAGE_BASE}/${f}`);
-console.log(`${today} ${entry.pillar}: ${entry.headline} (${urls.length} slides)`);
+const type = entry.type ?? 'carousel';
+const files =
+  type === 'reel' ? [entry.video, entry.cover] : type === 'image' ? [entry.image] : entry.images;
+const urls = files.map((f) => `${IMAGE_BASE}/${f}`);
+console.log(`${today} ${type} ${entry.pillar}: ${entry.headline} (${urls.length} file${urls.length > 1 ? 's' : ''})`);
 for (const u of urls) {
   const r = await fetch(u, { method: 'HEAD' });
   if (!r.ok) throw new Error(`image not reachable: ${r.status} ${u}`);
@@ -36,9 +39,14 @@ if (recent.data?.some((m) => m.caption?.startsWith(firstLine))) {
   process.exit(0);
 }
 
-const creation = await createCarousel(cfg, urls, entry.caption);
+const creation =
+  type === 'reel'
+    ? await createReel(cfg, urls[0], urls[1], entry.caption)
+    : type === 'image'
+      ? await createImage(cfg, urls[0], entry.caption, entry.alt_text)
+      : await createCarousel(cfg, urls, entry.caption);
 if (has('--no-publish')) {
-  console.log(`carousel container ${creation} FINISHED; not publishing (expires in 24 hours)`);
+  console.log(`${type} container ${creation} FINISHED; not publishing (expires in 24 hours)`);
   process.exit(0);
 }
 const { id, permalink } = await publish(cfg, creation);
