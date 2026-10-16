@@ -1,14 +1,17 @@
 name: Answer comment keywords
 
+# GitHub throttles frequent schedules (a */5 cron fired every 2-4 hours in practice), so each run
+# stays up for ~5h50m and checks comments every 3 minutes. An hourly trigger queues the next run
+# behind it (concurrency keeps one waiting), so coverage is continuous. Free: public repo.
 on:
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '7 * * * *'
   workflow_dispatch:
     inputs:
       mode:
-        description: 'answer | dry-run'
+        description: 'loop | once | dry-run'
         required: false
-        default: answer
+        default: loop
 
 permissions:
   contents: read
@@ -20,13 +23,13 @@ concurrency:
 jobs:
   replies:
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 358
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Answer CALLS / COMPARE comments
+      - name: Answer CALLS / COMPARE comments every 3 minutes
         env:
           SEED_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
           TOKEN_KEY: ${{ secrets.TOKEN_KEY }}
@@ -34,8 +37,14 @@ jobs:
           MODE: ${{ inputs.mode }}
         run: |
           source runtime/token.sh
-          if [ "${MODE:-answer}" = "dry-run" ]; then
-            node runtime/replies.mjs --dry-run
-          else
-            node runtime/replies.mjs
-          fi
+          case "${MODE:-loop}" in
+            dry-run) node runtime/replies.mjs --dry-run ;;
+            once) node runtime/replies.mjs ;;
+            *)
+              end=$((SECONDS + 350 * 60))
+              while [ "$SECONDS" -lt "$end" ]; do
+                node runtime/replies.mjs || echo "::warning::reply pass failed; retrying in 3 minutes"
+                sleep 180
+              done
+              ;;
+          esac

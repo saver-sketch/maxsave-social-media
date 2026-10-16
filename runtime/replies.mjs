@@ -22,11 +22,13 @@ function keywordOf(text = '') {
 const dry = process.argv.includes('--dry-run');
 const cfg = env();
 const cutoff = Date.now() - 3 * 86_400_000;
-const media = await graph(cfg.token, 'GET', '/me/media?fields=id,timestamp&limit=15');
+// One call per pass: only open posts that actually have comments (keeps us far below Meta's limits).
+const media = await graph(cfg.token, 'GET', '/me/media?fields=id,timestamp,comments_count&limit=12');
 
 let seen = 0;
 let answered = 0;
 for (const m of media.data ?? []) {
+  if (!m.comments_count) continue;
   const comments = await graph(
     cfg.token,
     'GET',
