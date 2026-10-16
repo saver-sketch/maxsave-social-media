@@ -2,13 +2,9 @@ name: Daily Instagram post
 
 on:
   schedule:
-    # GitHub skips or delays scheduled runs under load, so try several times; the script
-    # skips once today's carousel is up, so only the first successful run posts.
-    - cron: '0 16 * * *' # 9 AM PDT / 8 AM PST
-    - cron: '40 16 * * *'
-    - cron: '30 17 * * *'
-    - cron: '30 18 * * *'
-    - cron: '0 20 * * *'
+    # The replies.yml loop publishes at 9 AM Pacific (GitHub skipped every cron here on 10/16).
+    # This late run is a backstop and keeps the token refresh going; it skips if already posted.
+    - cron: '0 21 * * *'
   workflow_dispatch:
     inputs:
       date:

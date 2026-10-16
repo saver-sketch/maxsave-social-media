@@ -3,6 +3,8 @@ name: Answer comment keywords
 # GitHub throttles frequent schedules (a */5 cron fired every 2-4 hours in practice), so each run
 # stays up for ~5h50m and checks comments every 3 minutes. An hourly trigger queues the next run
 # behind it (concurrency keeps one waiting), so coverage is continuous. Free: public repo.
+# The loop also publishes the day's post once it is 9 AM Pacific, because GitHub skips or delays
+# post.yml's own schedule (10/16 none of its runs started). post.mjs skips if already posted.
 on:
   schedule:
     - cron: '7 * * * *'
@@ -42,7 +44,14 @@ jobs:
             once) node runtime/replies.mjs ;;
             *)
               end=$((SECONDS + 350 * 60))
+              posted=""
               while [ "$SECONDS" -lt "$end" ]; do
+                day=$(TZ=America/Los_Angeles date +%F)
+                hour=$(TZ=America/Los_Angeles date +%H)
+                if [ "$posted" != "$day" ] && [ "$((10#$hour))" -ge 9 ]; then
+                  if node runtime/post.mjs --date="$day"; then posted="$day"
+                  else echo "::warning::daily post failed; retrying in 3 minutes"; fi
+                fi
                 node runtime/replies.mjs || echo "::warning::reply pass failed; retrying in 3 minutes"
                 sleep 180
               done
