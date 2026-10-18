@@ -21,7 +21,7 @@ async function call(token, method, path, params = {}) {
 
 /** True when a post whose message starts with firstLine is already on the Page (idempotency). */
 export async function fbAlreadyPosted({ pageId, token }, firstLine) {
-  const { data = [] } = await call(token, 'GET', `/${pageId}/feed`, { fields: 'message', limit: '10' });
+  const { data = [] } = await call(token, 'GET', `/${pageId}/posts`, { fields: 'message', limit: '10' });
   return data.some((p) => p.message?.startsWith(firstLine));
 }
 

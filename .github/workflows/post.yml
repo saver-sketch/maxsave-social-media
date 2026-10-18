@@ -36,6 +36,8 @@ jobs:
           SEED_TOKEN: ${{ secrets.IG_ACCESS_TOKEN }}
           TOKEN_KEY: ${{ secrets.TOKEN_KEY }}
           IG_USER_ID: ${{ secrets.IG_USER_ID }}
+          FB_PAGE_ID: ${{ secrets.FB_PAGE_ID }}
+          FB_PAGE_TOKEN: ${{ secrets.FB_PAGE_TOKEN }}
           POST_DATE: ${{ inputs.date }}
           MODE: ${{ inputs.mode }}
           REFRESH: '1'
