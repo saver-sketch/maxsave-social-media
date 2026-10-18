@@ -2,6 +2,7 @@
 // Flags: --date=YYYY-MM-DD  --dry-run (no Instagram calls)  --no-publish (build container only)
 import { readFileSync } from 'node:fs';
 import { IMAGE_BASE, createCarousel, createImage, createReel, env, graph, publish } from './ig.mjs';
+import { fbAlreadyPosted, fbEnv, fbPublish } from './fb.mjs';
 
 const args = process.argv.slice(2);
 const has = (f) => args.includes(f);
@@ -34,8 +35,25 @@ const cfg = env();
 // Idempotent: a rerun or a late schedule never double-posts.
 const firstLine = entry.caption.split('\n')[0];
 const recent = await graph(cfg.token, 'GET', '/me/media?fields=caption&limit=5');
-if (recent.data?.some((m) => m.caption?.startsWith(firstLine))) {
+const igDone = recent.data?.some((m) => m.caption?.startsWith(firstLine));
+
+// Facebook Page mirror (same post, same morning). Runs even when Instagram already has it, so a
+// Facebook failure never blocks Instagram and a rerun fills in whichever side is missing.
+const fb = fbEnv();
+async function mirrorToFacebook() {
+  if (!fb || has('--no-publish')) return;
+  try {
+    if (await fbAlreadyPosted(fb, firstLine)) return console.log('facebook: already posted');
+    const r = await fbPublish(fb, entry, type === 'reel' ? [urls[0]] : urls);
+    console.log(`facebook: published ${r.kind} ${r.id}`);
+  } catch (e) {
+    console.log(`::warning::facebook publish failed: ${e.message}`);
+  }
+}
+
+if (igDone) {
   console.log('already posted; nothing to do');
+  await mirrorToFacebook();
   process.exit(0);
 }
 
@@ -51,3 +69,4 @@ if (has('--no-publish')) {
 }
 const { id, permalink } = await publish(cfg, creation);
 console.log(`published ${id} ${permalink}`);
+await mirrorToFacebook();
